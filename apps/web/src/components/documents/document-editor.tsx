@@ -1,5 +1,7 @@
 "use client";
 
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
@@ -20,10 +22,20 @@ export default function DocumentEditor({ documentId }: DocumentEditorProps) {
 
   const [document, setDocument] = useState<DocumentData | null>(null);
   const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const editor = useEditor({
+    extensions: [StarterKit],
+    content: "",
+    immediatelyRender: false,
+    editorProps: {
+      attributes: {
+        class: "tiptap-editor",
+      },
+    },
+  });
 
   useEffect(() => {
     async function loadDocument() {
@@ -38,7 +50,8 @@ export default function DocumentEditor({ documentId }: DocumentEditorProps) {
 
         setDocument(data.document);
         setTitle(data.document.title);
-        setContent(data.document.content);
+
+        editor?.commands.setContent(data.document.content || "");
       } catch {
         setError("Unable to load document");
       } finally {
@@ -46,11 +59,16 @@ export default function DocumentEditor({ documentId }: DocumentEditorProps) {
       }
     }
 
-    void loadDocument();
-  }, [documentId]);
+    if (editor) {
+      void loadDocument();
+    }
+  }, [documentId, editor]);
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (!editor) return;
+
     setSaving(true);
     setError("");
 
@@ -59,7 +77,7 @@ export default function DocumentEditor({ documentId }: DocumentEditorProps) {
         method: "PATCH",
         body: JSON.stringify({
           title,
-          content,
+          content: editor.getHTML(),
         }),
       });
 
@@ -77,17 +95,15 @@ export default function DocumentEditor({ documentId }: DocumentEditorProps) {
   }
 
   async function handleDelete() {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this document?",
-    );
+    if (!document) return;
 
-    if (!confirmed) return;
+    if (!window.confirm("Delete this document?")) return;
 
     const response = await apiFetch(`/documents/${documentId}`, {
       method: "DELETE",
     });
 
-    if (response.ok && document) {
+    if (response.ok) {
       router.push(`/dashboard/${document.workspaceId}`);
       router.refresh();
     } else {
@@ -96,17 +112,18 @@ export default function DocumentEditor({ documentId }: DocumentEditorProps) {
   }
 
   if (loading) {
-    return <p className="text-slate-400">Loading document...</p>;
+    return <p className="p-8 text-slate-400">Loading document...</p>;
   }
 
   if (!document) {
-    return <p className="text-red-400">{error || "Document not found"}</p>;
+    return <p className="p-8 text-red-400">{error || "Document not found"}</p>;
   }
 
   return (
     <section className="p-8">
       <div className="mx-auto max-w-5xl">
         <button
+          type="button"
           onClick={() => router.push(`/dashboard/${document.workspaceId}`)}
           className="mb-6 text-sm text-slate-400 hover:text-white"
         >
@@ -114,7 +131,7 @@ export default function DocumentEditor({ documentId }: DocumentEditorProps) {
         </button>
 
         <form onSubmit={handleSave} className="space-y-6">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
             <input
               value={title}
               onChange={(event) => setTitle(event.target.value)}
@@ -132,17 +149,51 @@ export default function DocumentEditor({ documentId }: DocumentEditorProps) {
             </button>
           </div>
 
-          <textarea
-            value={content}
-            onChange={(event) => setContent(event.target.value)}
-            placeholder="Start writing your research..."
-            className="min-h-[500px] w-full resize-y rounded-lg border border-slate-700 bg-slate-900 p-5 leading-7 outline-none focus:border-blue-500"
-          />
+          <div className="rounded-lg border border-slate-700 bg-slate-900">
+            <div className="flex gap-2 border-b border-slate-700 p-3">
+              <button
+                type="button"
+                onClick={() => editor?.chain().focus().toggleBold().run()}
+                className="rounded px-3 py-1 font-bold hover:bg-slate-700"
+              >
+                B
+              </button>
+
+              <button
+                type="button"
+                onClick={() => editor?.chain().focus().toggleItalic().run()}
+                className="rounded px-3 py-1 italic hover:bg-slate-700"
+              >
+                I
+              </button>
+
+              <button
+                type="button"
+                onClick={() => editor?.chain().focus().toggleBulletList().run()}
+                className="rounded px-3 py-1 hover:bg-slate-700"
+              >
+                • List
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  editor?.chain().focus().toggleOrderedList().run()
+                }
+                className="rounded px-3 py-1 hover:bg-slate-700"
+              >
+                1. List
+              </button>
+            </div>
+
+            <EditorContent editor={editor} className="min-h-[500px]" />
+          </div>
 
           {error && <p className="text-sm text-red-400">{error}</p>}
         </form>
 
         <button
+          type="button"
           onClick={handleDelete}
           className="mt-6 text-sm text-red-400 hover:text-red-300"
         >
