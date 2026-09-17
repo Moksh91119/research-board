@@ -8,6 +8,7 @@ type CanvasPageProps = {
 
 export default async function CanvasPage({ params }: CanvasPageProps) {
   await params;
+  const { workspaceId } = await params;
 
   return (
     <div className="space-y-4 p-6">
@@ -18,7 +19,7 @@ export default async function CanvasPage({ params }: CanvasPageProps) {
         </p>
       </div>
 
-      <ResearchCanvas />
+      <ResearchCanvas workspaceId={workspaceId} />
     </div>
   );
 }
