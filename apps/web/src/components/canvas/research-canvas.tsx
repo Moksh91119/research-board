@@ -22,6 +22,7 @@ import "@xyflow/react/dist/style.css";
 import { apiFetch } from "@/lib/api";
 import ResearchNode from "./nodes/research-node";
 import CanvasInspector from "./canvas-inspector";
+import CanvasImportPanel from "./canvas-import-panel";
 
 const nodeTypes = {
   research: ResearchNode,
@@ -304,6 +305,30 @@ function CanvasContent({ workspaceId }: ResearchCanvasProps) {
     saveCanvas([], []);
   }
 
+  function importNode(node: Node) {
+    const updatedNode = {
+      ...node,
+      position: {
+        x: 250 + Math.random() * 250,
+        y: 150 + Math.random() * 250,
+      },
+    };
+
+    setNodes((currentNodes) => {
+      if (
+        currentNodes.some((existingNode) => existingNode.id === updatedNode.id)
+      ) {
+        return currentNodes;
+      }
+
+      const updatedNodes = [...currentNodes, updatedNode];
+
+      saveCanvas(updatedNodes, edges);
+
+      return updatedNodes;
+    });
+  }
+
   function handleCanvasKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
       event.preventDefault();
@@ -465,6 +490,8 @@ function CanvasContent({ workspaceId }: ResearchCanvasProps) {
           {saveStatus === "saved" && "Saved"}
           {saveStatus === "error" && "Save failed"}
         </div>
+
+        <CanvasImportPanel workspaceId={workspaceId} onImport={importNode} />
 
         <ReactFlow
           nodes={nodes}
