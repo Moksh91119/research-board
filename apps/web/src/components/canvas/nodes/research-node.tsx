@@ -30,7 +30,7 @@ export default function ResearchNode({ data, selected }: NodeProps) {
       />
 
       <div
-        className={`h-full min-h-32 w-full rounded-xl border-2 p-4 shadow-md ${categoryStyles[category]}`}
+        className={`h-full min-h-32 w-full cursor-pointer rounded-xl border-2 p-4 shadow-md ${categoryStyles[category]}`}
       >
         <Handle type="target" position={Position.Top} />
 

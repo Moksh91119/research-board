@@ -13,9 +13,13 @@ import {
   applyEdgeChanges,
   useEdgesState,
   useNodesState,
+  ConnectionLineType,
+  MarkerType,
   type Connection,
   type Edge,
   type Node,
+  type NodeMouseHandler,
+  useReactFlow,
 } from "@xyflow/react";
 
 import "@xyflow/react/dist/style.css";
@@ -23,6 +27,8 @@ import { apiFetch } from "@/lib/api";
 import ResearchNode from "./nodes/research-node";
 import CanvasInspector from "./canvas-inspector";
 import CanvasImportPanel from "./canvas-import-panel";
+import { useRouter } from "next/navigation";
+import { toPng } from "html-to-image";
 
 const nodeTypes = {
   research: ResearchNode,
@@ -43,6 +49,7 @@ type CanvasSnapshot = {
 };
 
 function CanvasContent({ workspaceId }: ResearchCanvasProps) {
+  const router = useRouter();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
 
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -54,7 +61,9 @@ function CanvasContent({ workspaceId }: ResearchCanvasProps) {
 
   const historyRef = useRef<CanvasSnapshot[]>([]);
   const futureRef = useRef<CanvasSnapshot[]>([]);
+  const canvasRef = useRef<HTMLDivElement>(null);
 
+  const { fitView, zoomIn, zoomOut } = useReactFlow();
   function recordHistory() {
     historyRef.current.push({
       nodes: structuredClone(nodes),
@@ -290,7 +299,23 @@ function CanvasContent({ workspaceId }: ResearchCanvasProps) {
     setNodes(updatedNodes);
     saveCanvas(updatedNodes, edges);
   }
+  const handleNodeDoubleClick: NodeMouseHandler = (_event, node) => {
+    const data = node.data as {
+      category?: string;
+      entityId?: string;
+      description?: string;
+    };
 
+    if (data.category === "document" && data.entityId) {
+      router.push(`/dashboard/${workspaceId}/documents/${data.entityId}`);
+
+      return;
+    }
+
+    if (data.category === "source" && data.description?.startsWith("http")) {
+      window.open(data.description, "_blank", "noopener,noreferrer");
+    }
+  };
   function clearCanvas() {
     if (nodes.length === 0) return;
 
@@ -327,6 +352,25 @@ function CanvasContent({ workspaceId }: ResearchCanvasProps) {
 
       return updatedNodes;
     });
+  }
+
+  async function exportCanvasAsPng() {
+    if (!canvasRef.current) return;
+
+    try {
+      const dataUrl = await toPng(canvasRef.current, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: "#f8fafc",
+      });
+
+      const link = document.createElement("a");
+      link.download = "research-canvas.png";
+      link.href = dataUrl;
+      link.click();
+    } catch (error) {
+      console.error("Canvas export failed:", error);
+    }
   }
 
   function handleCanvasKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
@@ -405,6 +449,7 @@ function CanvasContent({ workspaceId }: ResearchCanvasProps) {
   return (
     <div className="flex h-[calc(100vh-4rem)] min-h-0 w-full overflow-hidden rounded-xl border bg-slate-50">
       <div
+        ref={canvasRef}
         className="relative min-h-0 min-w-0 flex-1 outline-none"
         tabIndex={0}
         onKeyDown={handleCanvasKeyDown}
@@ -483,6 +528,38 @@ function CanvasContent({ workspaceId }: ResearchCanvasProps) {
           >
             Clear
           </button>
+
+          <button
+            type="button"
+            onClick={() => zoomIn({ duration: 200 })}
+            className="rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-200"
+          >
+            +
+          </button>
+
+          <button
+            type="button"
+            onClick={() => zoomOut({ duration: 200 })}
+            className="rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-200"
+          >
+            −
+          </button>
+
+          <button
+            type="button"
+            onClick={() => fitView({ duration: 300, padding: 0.2 })}
+            className="rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-200"
+          >
+            Fit view
+          </button>
+
+          <button
+            type="button"
+            onClick={exportCanvasAsPng}
+            className="rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-200"
+          >
+            Export PNG
+          </button>
         </div>
 
         <div className="absolute bottom-4 left-4 z-10 rounded-lg bg-white px-3 py-2 text-xs text-slate-600 shadow">
@@ -500,6 +577,20 @@ function CanvasContent({ workspaceId }: ResearchCanvasProps) {
           onNodesChange={handleNodesChange}
           onEdgesChange={handleEdgesChange}
           onConnect={handleConnect}
+          connectionLineType={ConnectionLineType.SmoothStep}
+          onNodeDoubleClick={handleNodeDoubleClick}
+          defaultEdgeOptions={{
+            type: "smoothstep",
+            animated: false,
+            style: {
+              stroke: "#94a3b8",
+              strokeWidth: 2,
+            },
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+              color: "#94a3b8",
+            },
+          }}
           fitView
           deleteKeyCode={["Backspace", "Delete"]}
           selectionOnDrag
