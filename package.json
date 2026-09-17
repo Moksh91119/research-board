@@ -1,0 +1,7 @@
+﻿{
+  "name": "research-board",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --parallel --filter './apps/*' dev"
+  }
+}
