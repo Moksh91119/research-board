@@ -14,3 +14,7 @@ export type CreateResearchSourceInput =
 
 export type UpdateResearchSourceInput =
   z.infer<typeof updateResearchSourceSchema>;
+
+export const previewSourceMetadataSchema = z.object({
+  url: z.string().url().max(2048),
+});

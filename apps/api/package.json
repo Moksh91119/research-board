@@ -16,6 +16,7 @@
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "^7.10.0",
     "argon2": "0.44.0",
+    "cheerio": "1.1.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",

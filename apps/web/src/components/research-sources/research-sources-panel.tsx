@@ -15,6 +15,12 @@ type ResearchSource = {
   createdAt: string;
 };
 
+type Metadata = {
+  title: string | null;
+  description: string | null;
+  image: string | null;
+};
+
 export default function ResearchSourcesPanel({
   workspaceId,
 }: ResearchSourcesPanelProps) {
@@ -22,7 +28,9 @@ export default function ResearchSourcesPanel({
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
   const [description, setDescription] = useState("");
+  const [preview, setPreview] = useState<Metadata | null>(null);
   const [loading, setLoading] = useState(true);
+  const [previewing, setPreviewing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -38,18 +46,80 @@ export default function ResearchSourcesPanel({
   }
 
   useEffect(() => {
+    let cancelled = false;
+
     async function load() {
       try {
-        await loadSources();
+        const response = await apiFetch(
+          `/workspaces/${workspaceId}/sources`,
+        );
+
+        if (!response.ok) {
+          throw new Error("Unable to load sources");
+        }
+
+        const data = await response.json();
+
+        if (!cancelled) {
+          setSources(data.sources);
+        }
       } catch {
-        setError("Unable to load sources");
+        if (!cancelled) {
+          setError("Unable to load sources");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
     void load();
+
+    return () => {
+      cancelled = true;
+    };
   }, [workspaceId]);
+
+  async function handlePreview() {
+    if (!url.trim()) {
+      setError("Enter a URL first");
+      return;
+    }
+
+    setPreviewing(true);
+    setError("");
+
+    try {
+      const response = await apiFetch("/metadata/preview", {
+        method: "POST",
+        body: JSON.stringify({
+          url: url.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Unable to preview metadata");
+      }
+
+      const data = await response.json();
+      const metadata = data.metadata as Metadata;
+
+      setPreview(metadata);
+
+      if (!title.trim() && metadata.title) {
+        setTitle(metadata.title);
+      }
+
+      if (!description.trim() && metadata.description) {
+        setDescription(metadata.description);
+      }
+    } catch {
+      setError("Unable to fetch metadata. Check the URL.");
+    } finally {
+      setPreviewing(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -58,14 +128,17 @@ export default function ResearchSourcesPanel({
     setError("");
 
     try {
-      const response = await apiFetch(`/workspaces/${workspaceId}/sources`, {
-        method: "POST",
-        body: JSON.stringify({
-          title: title.trim(),
-          url: url.trim(),
-          description: description.trim() || undefined,
-        }),
-      });
+      const response = await apiFetch(
+        `/workspaces/${workspaceId}/sources`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            title: title.trim(),
+            url: url.trim(),
+            description: description.trim() || undefined,
+          }),
+        },
+      );
 
       if (!response.ok) {
         throw new Error("Unable to create source");
@@ -74,19 +147,18 @@ export default function ResearchSourcesPanel({
       setTitle("");
       setUrl("");
       setDescription("");
+      setPreview(null);
 
       await loadSources();
     } catch {
-      setError("Unable to create source. Check the URL.");
+      setError("Unable to create source. Check the form.");
     } finally {
       setSubmitting(false);
     }
   }
 
   async function handleDelete(sourceId: string) {
-    const confirmed = window.confirm("Delete this source?");
-
-    if (!confirmed) return;
+    if (!window.confirm("Delete this source?")) return;
 
     const response = await apiFetch(`/sources/${sourceId}`, {
       method: "DELETE",
@@ -97,7 +169,9 @@ export default function ResearchSourcesPanel({
       return;
     }
 
-    setSources((current) => current.filter((source) => source.id !== sourceId));
+    setSources((current) =>
+      current.filter((source) => source.id !== sourceId),
+    );
   }
 
   return (
@@ -116,13 +190,51 @@ export default function ResearchSourcesPanel({
 
         <input
           value={url}
-          onChange={(event) => setUrl(event.target.value)}
+          onChange={(event) => {
+            setUrl(event.target.value);
+            setPreview(null);
+          }}
           type="url"
           placeholder="https://example.com/article"
           maxLength={2_000}
           required
           className="w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 outline-none focus:border-blue-500"
         />
+
+        <button
+          type="button"
+          onClick={handlePreview}
+          disabled={previewing || !url.trim()}
+          className="rounded-lg border border-slate-600 px-4 py-2 text-sm hover:bg-slate-800 disabled:opacity-50"
+        >
+          {previewing ? "Fetching..." : "Preview metadata"}
+        </button>
+
+        {preview && (
+          <div className="rounded-lg border border-slate-700 bg-slate-950 p-4">
+            <p className="text-xs font-semibold uppercase text-slate-500">
+              Metadata preview
+            </p>
+
+            {preview.title && (
+              <p className="mt-2 font-medium">{preview.title}</p>
+            )}
+
+            {preview.description && (
+              <p className="mt-1 text-sm text-slate-400">
+                {preview.description}
+              </p>
+            )}
+
+            {preview.image && (
+              <img
+                src={preview.image}
+                alt=""
+                className="mt-3 max-h-48 rounded-lg object-cover"
+              />
+            )}
+          </div>
+        )}
 
         <textarea
           value={description}

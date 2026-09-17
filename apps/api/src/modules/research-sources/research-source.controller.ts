@@ -70,3 +70,17 @@ export async function deleteResearchSourceController(
 
   res.status(204).send();
 }
+
+import { extractSourceMetadata } from "./metadata.service.js";
+import { previewSourceMetadataSchema } from "./research-source.schemas.js";
+
+export async function previewSourceMetadataController(
+  req: Request,
+  res: Response,
+) {
+  const { url } = previewSourceMetadataSchema.parse(req.body);
+
+  const metadata = await extractSourceMetadata(url);
+
+  res.json({ metadata });
+}

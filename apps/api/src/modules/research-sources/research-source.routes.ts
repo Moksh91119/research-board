@@ -5,6 +5,7 @@ import {
   deleteResearchSourceController,
   listResearchSourcesController,
   updateResearchSourceController,
+  previewSourceMetadataController,
 } from "./research-source.controller.js";
 
 const router = Router();
@@ -18,5 +19,7 @@ router.get("/workspaces/:workspaceId/sources", listResearchSourcesController);
 router.patch("/sources/:sourceId", updateResearchSourceController);
 
 router.delete("/sources/:sourceId", deleteResearchSourceController);
+
+router.post("/metadata/preview", previewSourceMetadataController);
 
 export default router;
