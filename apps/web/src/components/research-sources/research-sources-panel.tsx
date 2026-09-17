@@ -33,7 +33,7 @@ export default function ResearchSourcesPanel({
   const [loading, setLoading] = useState(true);
   const [previewing, setPreviewing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   async function loadSources() {
     const response = await apiFetch(`/workspaces/${workspaceId}/sources`);
@@ -168,6 +168,26 @@ export default function ResearchSourcesPanel({
     setSources((current) => current.filter((source) => source.id !== sourceId));
   }
 
+  async function handleRefresh(sourceId: string) {
+    setError(null);
+
+    try {
+      const response = await apiFetch(`/sources/${sourceId}/metadata/refresh`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to refresh metadata");
+      }
+
+      await loadSources();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to refresh metadata",
+      );
+    }
+  }
+
   return (
     <section className="mt-10 rounded-xl border border-slate-800 bg-slate-900 p-6">
       <h2 className="text-xl font-semibold">Research sources</h2>
@@ -289,6 +309,14 @@ export default function ResearchSourcesPanel({
                       </p>
                     )}
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleRefresh(source.id)}
+                    className="rounded-md border px-3 py-1 text-sm hover:bg-muted"
+                  >
+                    Refresh Metadata
+                  </button>
 
                   <button
                     type="button"

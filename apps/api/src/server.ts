@@ -55,6 +55,7 @@ app.use("/workspaces", workspaceRoutes);
 app.use(documentRoutes);
 app.use(researchSourceRoutes);
 app.use(documentSourceRoutes);
+app.use("/sources", researchSourceRoutes);
 
 app.use(
   (
