@@ -162,7 +162,12 @@ export async function refreshSourceMetadata(sourceId: string, userId: string) {
       id: sourceId,
       workspace: {
         memberships: {
-          some: { userId },
+          some: {
+            userId,
+            role: {
+              in: ["OWNER", "EDITOR"],
+            },
+          },
         },
       },
     },
