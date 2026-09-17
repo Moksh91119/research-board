@@ -10,6 +10,8 @@ import {
   updateResearchSource,
 } from "./research-source.service.js";
 
+import { refreshSourceMetadata } from "./metadata.service.js";
+
 function getParam(value: string | string[]) {
   return Array.isArray(value) ? value[0] : value;
 }
@@ -21,11 +23,7 @@ export async function createResearchSourceController(
   const workspaceId = getParam(req.params.workspaceId);
   const input = createResearchSourceSchema.parse(req.body);
 
-  const source = await createResearchSource(
-    req.userId!,
-    workspaceId,
-    input,
-  );
+  const source = await createResearchSource(req.userId!, workspaceId, input);
 
   res.status(201).json({ source });
 }
@@ -36,10 +34,7 @@ export async function listResearchSourcesController(
 ) {
   const workspaceId = getParam(req.params.workspaceId);
 
-  const sources = await listResearchSources(
-    req.userId!,
-    workspaceId,
-  );
+  const sources = await listResearchSources(req.userId!, workspaceId);
 
   res.json({ sources });
 }
@@ -51,11 +46,7 @@ export async function updateResearchSourceController(
   const sourceId = getParam(req.params.sourceId);
   const input = updateResearchSourceSchema.parse(req.body);
 
-  const source = await updateResearchSource(
-    req.userId!,
-    sourceId,
-    input,
-  );
+  const source = await updateResearchSource(req.userId!, sourceId, input);
 
   res.json({ source });
 }
@@ -83,4 +74,20 @@ export async function previewSourceMetadataController(
   const metadata = await extractSourceMetadata(url);
 
   res.json({ metadata });
+}
+
+export async function refreshSourceMetadataController(
+  req: Request,
+  res: Response,
+) {
+  const sourceId = String(req.params.sourceId);
+  const userId = req.userId;
+
+  if (!userId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const source = await refreshSourceMetadata(sourceId, userId);
+
+  return res.json({ source });
 }
