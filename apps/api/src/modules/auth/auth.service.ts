@@ -14,7 +14,7 @@ const secret = new TextEncoder().encode(jwtSecret);
 const JWT_ISSUER = "research-board-api";
 const JWT_AUDIENCE = "research-board-web";
 
-const ACCESS_TOKEN_TTL = "15m";
+const ACCESS_TOKEN_TTL = "1d";
 
 export type SafeUser = {
   id: string;

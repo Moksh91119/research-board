@@ -34,8 +34,26 @@ export async function listUserWorkspaces(userId: string) {
         some: { userId },
       },
     },
-    orderBy: {
-      createdAt: "desc",
+    orderBy: { createdAt: "desc" },
+    include: {
+      memberships: {
+        where: { userId },
+        select: { role: true },
+      },
+    },
+  });
+}
+
+export async function getUserWorkspace(
+  userId: string,
+  workspaceId: string,
+) {
+  return prisma.workspace.findFirst({
+    where: {
+      id: workspaceId,
+      memberships: {
+        some: { userId },
+      },
     },
     include: {
       memberships: {
