@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import ResearchSourcesPanel from "@/components/research-sources/research-sources-panel";
+import WorkspaceMembers from "@/components/workspace/workspace-members";
 
 type WorkspaceDetailProps = {
   workspaceId: string;
@@ -13,6 +14,9 @@ type Workspace = {
   id: string;
   name: string;
   description: string | null;
+  memberships?: {
+    role: string;
+  }[];
 };
 
 type DocumentItem = {
@@ -128,6 +132,11 @@ export default function WorkspaceDetail({ workspaceId }: WorkspaceDetailProps) {
         {workspace.description && (
           <p className="mt-2 text-slate-400">{workspace.description}</p>
         )}
+
+        <WorkspaceMembers
+          workspaceId={workspaceId}
+          currentRole={workspace.memberships?.[0]?.role}
+        />
 
         <div className="mt-10 rounded-xl border border-slate-800 bg-slate-900 p-6">
           <h2 className="text-xl font-semibold">Create document</h2>
