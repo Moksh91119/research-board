@@ -1,0 +1,194 @@
+"use client";
+
+import { FormEvent, useEffect, useState } from "react";
+import { apiFetch } from "@/lib/api";
+
+type ResearchSourcesPanelProps = {
+  workspaceId: string;
+};
+
+type ResearchSource = {
+  id: string;
+  title: string;
+  url: string;
+  description: string | null;
+  createdAt: string;
+};
+
+export default function ResearchSourcesPanel({
+  workspaceId,
+}: ResearchSourcesPanelProps) {
+  const [sources, setSources] = useState<ResearchSource[]>([]);
+  const [title, setTitle] = useState("");
+  const [url, setUrl] = useState("");
+  const [description, setDescription] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  async function loadSources() {
+    const response = await apiFetch(`/workspaces/${workspaceId}/sources`);
+
+    if (!response.ok) {
+      throw new Error("Unable to load sources");
+    }
+
+    const data = await response.json();
+    setSources(data.sources);
+  }
+
+  useEffect(() => {
+    async function load() {
+      try {
+        await loadSources();
+      } catch {
+        setError("Unable to load sources");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void load();
+  }, [workspaceId]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    setSubmitting(true);
+    setError("");
+
+    try {
+      const response = await apiFetch(`/workspaces/${workspaceId}/sources`, {
+        method: "POST",
+        body: JSON.stringify({
+          title: title.trim(),
+          url: url.trim(),
+          description: description.trim() || undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Unable to create source");
+      }
+
+      setTitle("");
+      setUrl("");
+      setDescription("");
+
+      await loadSources();
+    } catch {
+      setError("Unable to create source. Check the URL.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDelete(sourceId: string) {
+    const confirmed = window.confirm("Delete this source?");
+
+    if (!confirmed) return;
+
+    const response = await apiFetch(`/sources/${sourceId}`, {
+      method: "DELETE",
+    });
+
+    if (!response.ok) {
+      setError("Unable to delete source");
+      return;
+    }
+
+    setSources((current) => current.filter((source) => source.id !== sourceId));
+  }
+
+  return (
+    <section className="mt-10 rounded-xl border border-slate-800 bg-slate-900 p-6">
+      <h2 className="text-xl font-semibold">Research sources</h2>
+
+      <form onSubmit={handleSubmit} className="mt-5 space-y-3">
+        <input
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+          placeholder="Source title"
+          maxLength={200}
+          required
+          className="w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 outline-none focus:border-blue-500"
+        />
+
+        <input
+          value={url}
+          onChange={(event) => setUrl(event.target.value)}
+          type="url"
+          placeholder="https://example.com/article"
+          maxLength={2_000}
+          required
+          className="w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 outline-none focus:border-blue-500"
+        />
+
+        <textarea
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+          placeholder="Optional description"
+          maxLength={1_000}
+          rows={3}
+          className="w-full resize-y rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 outline-none focus:border-blue-500"
+        />
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-medium hover:bg-blue-500 disabled:opacity-50"
+        >
+          {submitting ? "Adding..." : "Add source"}
+        </button>
+      </form>
+
+      {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
+
+      <div className="mt-8">
+        {loading ? (
+          <p className="text-sm text-slate-400">Loading sources...</p>
+        ) : sources.length === 0 ? (
+          <p className="text-sm text-slate-400">No research sources yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {sources.map((source) => (
+              <article
+                key={source.id}
+                className="rounded-lg border border-slate-800 bg-slate-950 p-4"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <h3 className="font-medium">{source.title}</h3>
+
+                    <a
+                      href={source.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 block break-all text-sm text-blue-400 hover:text-blue-300"
+                    >
+                      {source.url}
+                    </a>
+
+                    {source.description && (
+                      <p className="mt-2 text-sm text-slate-400">
+                        {source.description}
+                      </p>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(source.id)}
+                    className="shrink-0 text-sm text-red-400 hover:text-red-300"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}

@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
+import ResearchSourcesPanel from "@/components/research-sources/research-sources-panel";
 
 type WorkspaceDetailProps = {
   workspaceId: string;
@@ -180,6 +181,7 @@ export default function WorkspaceDetail({ workspaceId }: WorkspaceDetailProps) {
         </div>
 
         {error && <p className="mt-6 text-sm text-red-400">{error}</p>}
+        <ResearchSourcesPanel workspaceId={workspaceId} />
       </div>
     </section>
   );
