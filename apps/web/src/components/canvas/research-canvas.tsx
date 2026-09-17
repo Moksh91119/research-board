@@ -274,6 +274,7 @@ function CanvasContent({ workspaceId }: ResearchCanvasProps) {
   const selectedNodeCount = nodes.filter((node) => node.selected).length;
 
   const selectedNode = nodes.find((node) => node.selected);
+  const selectedEdge = edges.find((edge) => edge.selected);
   function duplicateSelectedNodes() {
     const selectedNodes = nodes.filter((node) => node.selected);
 
@@ -352,6 +353,23 @@ function CanvasContent({ workspaceId }: ResearchCanvasProps) {
       saveCanvas(updatedNodes, edges);
 
       return updatedNodes;
+    });
+  }
+  function updateSelectedEdge(updates: { label?: string }) {
+    recordHistory();
+
+    setEdges((currentEdges) => {
+      const updatedEdges = currentEdges.map((edge) => {
+        if (!edge.selected) return edge;
+
+        return {
+          ...edge,
+          label: updates.label,
+        };
+      });
+
+      saveCanvas(nodes, updatedEdges);
+      return updatedEdges;
     });
   }
 
@@ -511,7 +529,12 @@ function CanvasContent({ workspaceId }: ResearchCanvasProps) {
         </ReactFlow>
       </div>
 
-      <CanvasInspector node={selectedNode} onUpdate={updateSelectedNode} />
+      <CanvasInspector
+        node={selectedNode}
+        edge={selectedEdge}
+        onUpdateNode={updateSelectedNode}
+        onUpdateEdge={updateSelectedEdge}
+      />
     </div>
   );
 }

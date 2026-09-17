@@ -1,14 +1,16 @@
 "use client";
 
-import type { Node } from "@xyflow/react";
+import type { Edge, Node } from "@xyflow/react";
 
 type CanvasInspectorProps = {
   node: Node | undefined;
-  onUpdate: (updates: {
+  edge: Edge | undefined;
+  onUpdateNode: (updates: {
     title?: string;
     description?: string;
     category?: "source" | "document" | "note" | "question";
   }) => void;
+  onUpdateEdge: (updates: { label?: string }) => void;
 };
 
 type NodeData = {
@@ -19,7 +21,9 @@ type NodeData = {
 
 export default function CanvasInspector({
   node,
-  onUpdate,
+  edge,
+  onUpdateNode,
+  onUpdateEdge,
 }: CanvasInspectorProps) {
   const data = (node?.data ?? {}) as NodeData;
 
@@ -30,9 +34,38 @@ export default function CanvasInspector({
         <p className="mt-1 text-xs text-slate-500">Edit the selected item</p>
       </div>
 
-      {!node ? (
+      {!node && !edge ? (
         <div className="px-5 py-6 text-sm text-slate-500">
-          Select a node to edit its properties.
+          Select a node or connection to edit its properties.
+        </div>
+      ) : edge ? (
+        <div className="space-y-5 px-5 py-5">
+          <div>
+            <label
+              htmlFor="edge-label"
+              className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-600"
+            >
+              Relationship
+            </label>
+
+            <input
+              id="edge-label"
+              type="text"
+              value={typeof edge.label === "string" ? edge.label : ""}
+              onChange={(event) => onUpdateEdge({ label: event.target.value })}
+              placeholder="e.g. supports, contradicts"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            />
+          </div>
+
+          <div className="border-t border-slate-200 pt-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Connection
+            </p>
+            <p className="mt-2 break-all text-xs text-slate-500">
+              {edge.source} → {edge.target}
+            </p>
+          </div>
         </div>
       ) : (
         <div className="space-y-5 overflow-y-auto px-5 py-5">
@@ -48,8 +81,8 @@ export default function CanvasInspector({
               id="node-title"
               type="text"
               value={data.title ?? ""}
-              onChange={(event) => onUpdate({ title: event.target.value })}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              onChange={(event) => onUpdateNode({ title: event.target.value })}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
           </div>
 
@@ -65,12 +98,10 @@ export default function CanvasInspector({
               id="node-description"
               value={data.description ?? ""}
               onChange={(event) =>
-                onUpdate({
-                  description: event.target.value,
-                })
+                onUpdateNode({ description: event.target.value })
               }
               rows={5}
-              className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              className="w-full resize-y rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
           </div>
 
@@ -86,11 +117,11 @@ export default function CanvasInspector({
               id="node-category"
               value={data.category ?? "note"}
               onChange={(event) =>
-                onUpdate({
+                onUpdateNode({
                   category: event.target.value as NodeData["category"],
                 })
               }
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             >
               <option value="source">Source</option>
               <option value="document">Document</option>
@@ -103,8 +134,7 @@ export default function CanvasInspector({
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Node ID
             </p>
-
-            <p className="mt-2 break-all text-xs text-slate-500">{node.id}</p>
+            <p className="mt-2 break-all text-xs text-slate-500">{node?.id}</p>
           </div>
         </div>
       )}
