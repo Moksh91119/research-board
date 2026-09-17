@@ -21,6 +21,7 @@ model User {
   updatedAt    DateTime          @updatedAt
   memberships  WorkspaceMember[]
   documents  Document[]
+  researchSources ResearchSource[]
 }
 
 model Workspace {
@@ -31,6 +32,7 @@ model Workspace {
   updatedAt   DateTime          @updatedAt
   memberships WorkspaceMember[]
   documents   Document[]
+  researchSources ResearchSource[]
 }
 
 model WorkspaceMember {
@@ -52,6 +54,24 @@ model Document {
   id          String   @id @default(uuid())
   title       String
   content     String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspaceId String
+  createdById String
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User      @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId])
+  @@index([createdById])
+}
+
+model ResearchSource {
+  id          String   @id @default(uuid())
+  title       String
+  url         String
+  description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
