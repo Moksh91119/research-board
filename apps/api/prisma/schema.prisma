@@ -56,6 +56,7 @@ model Document {
   content     String   @default("")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  sources DocumentSource[]
 
   workspaceId String
   createdById String
@@ -74,6 +75,7 @@ model ResearchSource {
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  documents DocumentSource[]
 
   workspaceId String
   createdById String
@@ -83,4 +85,16 @@ model ResearchSource {
 
   @@index([workspaceId])
   @@index([createdById])
+}
+
+model DocumentSource {
+  documentId String
+  sourceId   String
+  createdAt  DateTime @default(now())
+
+  document Document       @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  source   ResearchSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@id([documentId, sourceId])
+  @@index([sourceId])
 }
