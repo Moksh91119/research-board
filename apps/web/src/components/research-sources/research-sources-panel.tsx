@@ -12,6 +12,7 @@ type ResearchSource = {
   title: string;
   url: string;
   description: string | null;
+  imageUrl: string | null;
   createdAt: string;
 };
 
@@ -50,9 +51,7 @@ export default function ResearchSourcesPanel({
 
     async function load() {
       try {
-        const response = await apiFetch(
-          `/workspaces/${workspaceId}/sources`,
-        );
+        const response = await apiFetch(`/workspaces/${workspaceId}/sources`);
 
         if (!response.ok) {
           throw new Error("Unable to load sources");
@@ -128,17 +127,14 @@ export default function ResearchSourcesPanel({
     setError("");
 
     try {
-      const response = await apiFetch(
-        `/workspaces/${workspaceId}/sources`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            title: title.trim(),
-            url: url.trim(),
-            description: description.trim() || undefined,
-          }),
-        },
-      );
+      const response = await apiFetch(`/workspaces/${workspaceId}/sources`, {
+        method: "POST",
+        body: JSON.stringify({
+          title: title.trim(),
+          url: url.trim(),
+          description: description.trim() || undefined,
+        }),
+      });
 
       if (!response.ok) {
         throw new Error("Unable to create source");
@@ -169,9 +165,7 @@ export default function ResearchSourcesPanel({
       return;
     }
 
-    setSources((current) =>
-      current.filter((source) => source.id !== sourceId),
-    );
+    setSources((current) => current.filter((source) => source.id !== sourceId));
   }
 
   return (
@@ -268,6 +262,14 @@ export default function ResearchSourcesPanel({
                 key={source.id}
                 className="rounded-lg border border-slate-800 bg-slate-950 p-4"
               >
+                {source.imageUrl && (
+                  <img
+                    src={source.imageUrl}
+                    alt=""
+                    loading="lazy"
+                    className="mb-4 max-h-48 w-full rounded-lg object-cover"
+                  />
+                )}
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <h3 className="font-medium">{source.title}</h3>

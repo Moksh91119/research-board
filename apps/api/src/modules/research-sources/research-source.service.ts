@@ -1,8 +1,9 @@
-﻿import { prisma } from "../../lib/prisma.js";
+import { prisma } from "../../lib/prisma.js";
 import type {
   CreateResearchSourceInput,
   UpdateResearchSourceInput,
 } from "./research-source.schemas.js";
+import { extractSourceMetadata } from "./metadata.service.js";
 
 async function requireMembership(
   userId: string,
@@ -18,10 +19,7 @@ async function requireMembership(
     },
   });
 
-  if (
-    !membership ||
-    (canEdit && membership.role === "VIEWER")
-  ) {
+  if (!membership || (canEdit && membership.role === "VIEWER")) {
     throw new Error("WORKSPACE_NOT_FOUND");
   }
 
@@ -35,9 +33,24 @@ export async function createResearchSource(
 ) {
   await requireMembership(userId, workspaceId, true);
 
+  let metadata = {
+    title: null as string | null,
+    description: null as string | null,
+    image: null as string | null,
+  };
+
+  try {
+    metadata = await extractSourceMetadata(input.url);
+  } catch {
+    // Metadata extraction is optional.
+  }
+
   return prisma.researchSource.create({
     data: {
-      ...input,
+      title: input.title || metadata.title || input.url,
+      url: input.url,
+      description: input.description || metadata.description,
+      imageUrl: metadata.image,
       workspaceId,
       createdById: userId,
     },
