@@ -9,6 +9,8 @@ import {
   ReactFlowProvider,
   SelectionMode,
   addEdge,
+  applyNodeChanges,
+  applyEdgeChanges,
   useEdgesState,
   useNodesState,
   type Connection,
@@ -34,6 +36,11 @@ type ResearchCanvasProps = {
   workspaceId: string;
 };
 
+type CanvasSnapshot = {
+  nodes: Node[];
+  edges: Edge[];
+};
+
 function CanvasContent({ workspaceId }: ResearchCanvasProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
 
@@ -43,6 +50,22 @@ function CanvasContent({ workspaceId }: ResearchCanvasProps) {
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error">(
     "saved",
   );
+
+  const historyRef = useRef<CanvasSnapshot[]>([]);
+  const futureRef = useRef<CanvasSnapshot[]>([]);
+
+  function recordHistory() {
+    historyRef.current.push({
+      nodes: structuredClone(nodes),
+      edges: structuredClone(edges),
+    });
+
+    if (historyRef.current.length > 50) {
+      historyRef.current.shift();
+    }
+
+    futureRef.current = [];
+  }
 
   const loadedRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -132,30 +155,29 @@ function CanvasContent({ workspaceId }: ResearchCanvasProps) {
 
   const handleNodesChange = useCallback(
     (changes: Parameters<typeof onNodesChange>[0]) => {
-      onNodesChange(changes);
+      recordHistory();
+      const updatedNodes = applyNodeChanges(changes, nodes);
 
-      setNodes((currentNodes) => {
-        saveCanvas(currentNodes, edges);
-        return currentNodes;
-      });
+      setNodes(updatedNodes);
+      saveCanvas(updatedNodes, edges);
     },
-    [edges, onNodesChange, saveCanvas, setNodes],
+    [nodes, edges, saveCanvas, setNodes],
   );
 
   const handleEdgesChange = useCallback(
     (changes: Parameters<typeof onEdgesChange>[0]) => {
-      onEdgesChange(changes);
+      recordHistory();
+      const updatedEdges = applyEdgeChanges(changes, edges);
 
-      setEdges((currentEdges) => {
-        saveCanvas(nodes, currentEdges);
-        return currentEdges;
-      });
+      setEdges(updatedEdges);
+      saveCanvas(nodes, updatedEdges);
     },
-    [nodes, onEdgesChange, saveCanvas, setEdges],
+    [nodes, edges, saveCanvas, setEdges],
   );
 
   function handleConnect(connection: Connection) {
     setEdges((currentEdges) => {
+      recordHistory();
       const updatedEdges = addEdge(connection, currentEdges);
 
       saveCanvas(nodes, updatedEdges);
@@ -166,6 +188,7 @@ function CanvasContent({ workspaceId }: ResearchCanvasProps) {
   function addResearchNode(
     category: "source" | "document" | "note" | "question",
   ) {
+    recordHistory();
     const titles = {
       source: "New Source",
       document: "New Document",
@@ -199,6 +222,7 @@ function CanvasContent({ workspaceId }: ResearchCanvasProps) {
     description?: string;
     category?: "source" | "document" | "note" | "question";
   }) {
+    recordHistory();
     setNodes((currentNodes) => {
       const updatedNodes = currentNodes.map((node) => {
         if (!node.selected) return node;
@@ -218,6 +242,7 @@ function CanvasContent({ workspaceId }: ResearchCanvasProps) {
   }
 
   function deleteSelectedNodes() {
+    recordHistory();
     const selectedIds = new Set(
       nodes.filter((node) => node.selected).map((node) => node.id),
     );
@@ -238,6 +263,111 @@ function CanvasContent({ workspaceId }: ResearchCanvasProps) {
   const selectedNodeCount = nodes.filter((node) => node.selected).length;
 
   const selectedNode = nodes.find((node) => node.selected);
+  function duplicateSelectedNodes() {
+    const selectedNodes = nodes.filter((node) => node.selected);
+
+    if (selectedNodes.length === 0) return;
+
+    const duplicatedNodes: Node[] = selectedNodes.map((node) => ({
+      ...structuredClone(node),
+      id: `${node.type ?? "node"}-${crypto.randomUUID()}`,
+      position: {
+        x: node.position.x + 40,
+        y: node.position.y + 40,
+      },
+      selected: false,
+    }));
+
+    const updatedNodes = [
+      ...nodes.map((node) => ({
+        ...node,
+        selected: false,
+      })),
+      ...duplicatedNodes,
+    ];
+
+    setNodes(updatedNodes);
+    saveCanvas(updatedNodes, edges);
+  }
+
+  function clearCanvas() {
+    if (nodes.length === 0) return;
+
+    const confirmed = window.confirm(
+      "Delete all canvas nodes and connections?",
+    );
+
+    if (!confirmed) return;
+
+    setNodes([]);
+    setEdges([]);
+    saveCanvas([], []);
+  }
+
+  function handleCanvasKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
+      event.preventDefault();
+
+      if (event.shiftKey) {
+        redoCanvas();
+      } else {
+        undoCanvas();
+      }
+
+      return;
+    }
+
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "d") {
+      event.preventDefault();
+      duplicateSelectedNodes();
+      return;
+    }
+    if (event.key === "Escape") {
+      setNodes((currentNodes) =>
+        currentNodes.map((node) => ({
+          ...node,
+          selected: false,
+        })),
+      );
+
+      return;
+    }
+
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+      event.preventDefault();
+      saveCanvas(nodes, edges);
+    }
+  }
+
+  function undoCanvas() {
+    const previous = historyRef.current.pop();
+
+    if (!previous) return;
+
+    futureRef.current.push({
+      nodes: structuredClone(nodes),
+      edges: structuredClone(edges),
+    });
+
+    setNodes(previous.nodes);
+    setEdges(previous.edges);
+    saveCanvas(previous.nodes, previous.edges);
+  }
+
+  function redoCanvas() {
+    const next = futureRef.current.pop();
+
+    if (!next) return;
+
+    historyRef.current.push({
+      nodes: structuredClone(nodes),
+      edges: structuredClone(edges),
+    });
+
+    setNodes(next.nodes);
+    setEdges(next.edges);
+    saveCanvas(next.nodes, next.edges);
+  }
 
   if (loading) {
     return (
@@ -249,7 +379,11 @@ function CanvasContent({ workspaceId }: ResearchCanvasProps) {
 
   return (
     <div className="flex h-[calc(100vh-4rem)] min-h-0 w-full overflow-hidden rounded-xl border bg-slate-50">
-      <div className="relative min-h-0 min-w-0 flex-1">
+      <div
+        className="relative min-h-0 min-w-0 flex-1 outline-none"
+        tabIndex={0}
+        onKeyDown={handleCanvasKeyDown}
+      >
         <div className="absolute left-4 top-4 z-10 flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-lg">
           <button
             type="button"
@@ -290,6 +424,39 @@ function CanvasContent({ workspaceId }: ResearchCanvasProps) {
             onClick={deleteSelectedNodes}
           >
             Delete selected
+          </button>
+
+          <button
+            type="button"
+            className="rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-700 hover:bg-slate-200"
+            onClick={undoCanvas}
+          >
+            ↶ Undo
+          </button>
+
+          <button
+            type="button"
+            className="rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-700 hover:bg-slate-200"
+            onClick={redoCanvas}
+          >
+            ↷ Redo
+          </button>
+
+          <button
+            type="button"
+            className="rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-700 hover:bg-slate-200 disabled:opacity-40"
+            disabled={selectedNodeCount === 0}
+            onClick={duplicateSelectedNodes}
+          >
+            Duplicate
+          </button>
+
+          <button
+            type="button"
+            className="rounded-lg bg-red-100 px-3 py-2 text-sm text-red-900 hover:bg-red-200"
+            onClick={clearCanvas}
+          >
+            Clear
           </button>
         </div>
 
