@@ -2,7 +2,7 @@
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import DocumentSourcesPanel from "@/components/document-sources/document-sources-panel";
@@ -26,6 +26,12 @@ export default function DocumentEditor({ documentId }: DocumentEditorProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [saveStatus, setSaveStatus] = useState<
+    "saved" | "saving" | "unsaved" | "error"
+  >("saved");
+
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isInitialLoad = useRef(true);
 
   const editor = useEditor({
     extensions: [StarterKit],
@@ -36,7 +42,39 @@ export default function DocumentEditor({ documentId }: DocumentEditorProps) {
         class: "tiptap-editor",
       },
     },
+    onUpdate: ({ editor }) => {
+      if (isInitialLoad.current) return;
+
+      setSaveStatus("unsaved");
+
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current);
+      }
+
+      saveTimer.current = setTimeout(() => {
+        void saveDocument(editor.getHTML());
+      }, 1000);
+    },
   });
+
+  async function saveDocument(content: string) {
+    setSaveStatus("saving");
+
+    try {
+      const response = await apiFetch(`/documents/${documentId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ content }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save document");
+      }
+
+      setSaveStatus("saved");
+    } catch {
+      setSaveStatus("error");
+    }
+  }
 
   useEffect(() => {
     async function loadDocument() {
@@ -53,6 +91,7 @@ export default function DocumentEditor({ documentId }: DocumentEditorProps) {
         setTitle(data.document.title);
 
         editor?.commands.setContent(data.document.content || "");
+        isInitialLoad.current = false;
       } catch {
         setError("Unable to load document");
       } finally {
@@ -64,6 +103,29 @@ export default function DocumentEditor({ documentId }: DocumentEditorProps) {
       void loadDocument();
     }
   }, [documentId, editor]);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      if (saveStatus === "unsaved" || saveStatus === "saving") {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [saveStatus]);
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -140,6 +202,13 @@ export default function DocumentEditor({ documentId }: DocumentEditorProps) {
               maxLength={200}
               required
             />
+
+            <span className="text-sm text-muted-foreground">
+              {saveStatus === "saving" && "Saving..."}
+              {saveStatus === "saved" && "Saved"}
+              {saveStatus === "unsaved" && "Unsaved changes"}
+              {saveStatus === "error" && "Save failed"}
+            </span>
 
             <button
               type="submit"
