@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import DocumentSourcesPanel from "@/components/document-sources/document-sources-panel";
 import { DocumentSources } from "@/components/documents/document-sources";
+import ResearchNotesPanel from "@/components/research-notes/research-notes-panel";
 
 type DocumentEditorProps = {
   documentId: string;
@@ -269,10 +270,17 @@ export default function DocumentEditor({ documentId }: DocumentEditorProps) {
         </form>
 
         {document && (
-          <DocumentSourcesPanel
-            documentId={document.id}
-            workspaceId={document.workspaceId}
-          />
+          <>
+            <DocumentSourcesPanel
+              documentId={document.id}
+              workspaceId={document.workspaceId}
+            />
+
+            <ResearchNotesPanel
+              documentId={document.id}
+              workspaceId={document.workspaceId}
+            />
+          </>
         )}
 
         <button

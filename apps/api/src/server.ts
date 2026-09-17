@@ -11,6 +11,7 @@ import documentRoutes from "./modules/documents/document.routes.js";
 import researchSourceRoutes from "./modules/research-sources/research-source.routes.js";
 import documentSourceRoutes from "./modules/document-sources/document-source.routes.js";
 import canvasRoutes from "./modules/canvas/canvas.routes.js";
+import researchNoteRoutes from "./routes/research-note.routes.js";
 
 const app = express();
 
@@ -59,6 +60,7 @@ app.use(researchSourceRoutes);
 app.use(documentSourceRoutes);
 app.use("/sources", researchSourceRoutes);
 app.use(canvasRoutes);
+app.use(researchNoteRoutes);
 
 app.use(
   (

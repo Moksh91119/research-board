@@ -23,6 +23,7 @@ model User {
   documents  Document[]
   researchSources ResearchSource[]
   sentInvitations WorkspaceInvitation[] @relation("SentInvitations")
+  researchNotes ResearchNote[]
 }
 
 model Workspace {
@@ -61,6 +62,7 @@ model Document {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   sources DocumentSource[]
+  researchNotes ResearchNote[]
 
   workspaceId String
   createdById String
@@ -81,6 +83,7 @@ model ResearchSource {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   documents DocumentSource[]
+  researchNotes ResearchNote[]
 
   workspaceId String
   createdById String
@@ -166,4 +169,25 @@ model WorkspaceInvitation {
 
   @@index([email, status])
   @@index([workspaceId, status])
+}
+
+model ResearchNote {
+  id          String   @id @default(uuid())
+  content     String
+  quote       String?
+  locator     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  documentId  String
+  sourceId    String?
+  createdById String
+
+  document  Document       @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  source    ResearchSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  createdBy User           @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([documentId])
+  @@index([sourceId])
+  @@index([createdById])
 }
