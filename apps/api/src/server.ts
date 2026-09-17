@@ -6,6 +6,7 @@ import cookieParser from "cookie-parser";
 import { prisma } from "./lib/prisma.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import workspaceRoutes from "./modules/workspaces/workspace.routes.js";
+import documentRoutes from "./modules/documents/document.routes.js";
 
 const app = express();
 
@@ -49,6 +50,7 @@ app.get("/health/db", async (_req, res) => {
 
 app.use("/auth", authRoutes);
 app.use("/workspaces", workspaceRoutes);
+app.use(documentRoutes);
 
 app.use(
   (

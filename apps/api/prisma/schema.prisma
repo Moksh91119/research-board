@@ -20,6 +20,7 @@ model User {
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
   memberships  WorkspaceMember[]
+  documents  Document[]
 }
 
 model Workspace {
@@ -29,6 +30,7 @@ model Workspace {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   memberships WorkspaceMember[]
+  documents   Document[]
 }
 
 model WorkspaceMember {
@@ -44,4 +46,21 @@ model WorkspaceMember {
 
   @@unique([userId, workspaceId])
   @@index([workspaceId])
+}
+
+model Document {
+  id          String   @id @default(uuid())
+  title       String
+  content     String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspaceId String
+  createdById String
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User      @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId])
+  @@index([createdById])
 }

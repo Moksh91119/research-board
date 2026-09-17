@@ -1,0 +1,18 @@
+import { z } from "zod";
+
+export const createDocumentSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  content: z.string().max(500_000).optional().default(""),
+});
+
+export const updateDocumentSchema = z.object({
+  title: z.string().trim().min(1).max(200).optional(),
+  content: z.string().max(500_000).optional(),
+});
+
+export const documentIdSchema = z.object({
+  documentId: z.string().uuid(),
+});
+
+export type CreateDocumentInput = z.infer<typeof createDocumentSchema>;
+export type UpdateDocumentInput = z.infer<typeof updateDocumentSchema>;
