@@ -9,6 +9,7 @@ import workspaceRoutes from "./modules/workspaces/workspace.routes.js";
 import documentRoutes from "./modules/documents/document.routes.js";
 import researchSourceRoutes from "./modules/research-sources/research-source.routes.js";
 import documentSourceRoutes from "./modules/document-sources/document-source.routes.js";
+import { ZodError } from "zod";
 
 const app = express();
 
@@ -64,15 +65,25 @@ app.use(
     res: express.Response,
     _next: express.NextFunction,
   ) => {
+    if (error instanceof ZodError) {
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: error.flatten(),
+      });
+    }
+
     console.error(error);
 
-    res.status(500).json({
-      error: "INTERNAL_SERVER_ERROR",
-      message: "An unexpected error occurred",
+    return res.status(500).json({
+      message: "Internal server error",
     });
   },
 );
 
-app.listen(PORT, () => {
-  console.log(`API running on http://localhost:${PORT}`);
-});
+if (process.env.NODE_ENV !== "test") {
+  app.listen(PORT, () => {
+    console.log(`API running on port ${PORT}`);
+  });
+}
+
+export { app };
