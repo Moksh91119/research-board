@@ -3,13 +3,25 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 
+type Role = "OWNER" | "EDITOR" | "VIEWER";
+
 type Member = {
   id: string;
-  role: "OWNER" | "EDITOR" | "VIEWER";
+  role: Role;
+  createdAt: string;
   user: {
     id: string;
     email: string;
   };
+};
+
+type Invitation = {
+  id: string;
+  email: string;
+  role: "EDITOR" | "VIEWER";
+  status: "PENDING";
+  expiresAt: string;
+  createdAt: string;
 };
 
 type Props = {
@@ -17,8 +29,9 @@ type Props = {
   currentRole?: string;
 };
 
-export default function WorkspaceMembers({ workspaceId, currentRole }: Props) {
+export function WorkspaceMembers({ workspaceId, currentRole }: Props) {
   const [members, setMembers] = useState<Member[]>([]);
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"EDITOR" | "VIEWER">("VIEWER");
   const [loading, setLoading] = useState(true);
@@ -27,42 +40,49 @@ export default function WorkspaceMembers({ workspaceId, currentRole }: Props) {
 
   const isOwner = currentRole === "OWNER";
 
-  async function loadMembers() {
-    const response = await apiFetch(`/workspaces/${workspaceId}/members`);
+  async function loadData() {
+    const memberResponse = await apiFetch(`/workspaces/${workspaceId}/members`);
 
-    if (!response.ok) {
-      throw new Error("Unable to load members.");
+    const memberData = (await memberResponse.json()) as {
+      members: Member[];
+    };
+
+    let invitationData: { invitations: Invitation[] } = {
+      invitations: [],
+    };
+
+    if (isOwner) {
+      const invitationResponse = await apiFetch(
+        `/workspaces/${workspaceId}/invitations`,
+      );
+
+      invitationData = (await invitationResponse.json()) as {
+        invitations: Invitation[];
+      };
     }
 
-    const data = await response.json();
-    setMembers(data.members);
+    setMembers(memberData.members);
+    setInvitations(invitationData.invitations);
   }
 
   useEffect(() => {
     let cancelled = false;
 
-    void Promise.resolve().then(() => {
-      if (cancelled) return;
-
-      return loadMembers()
-        .catch(() => {
-          if (!cancelled) {
-            setError("Unable to load members.");
-          }
-        })
-        .finally(() => {
-          if (!cancelled) {
-            setLoading(false);
-          }
-        });
-    });
+    void Promise.resolve()
+      .then(() => loadData())
+      .catch(() => {
+        if (!cancelled) setError("Unable to load workspace members.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [workspaceId]);
+  }, [workspaceId, isOwner]);
 
-  async function handleInvite(event: React.FormEvent<HTMLFormElement>) {
+  async function inviteMember(event: React.FormEvent) {
     event.preventDefault();
 
     if (!email.trim()) return;
@@ -71,147 +91,189 @@ export default function WorkspaceMembers({ workspaceId, currentRole }: Props) {
     setError("");
 
     try {
-      const response = await apiFetch(`/workspaces/${workspaceId}/members`, {
+      await apiFetch(`/workspaces/${workspaceId}/invitations`, {
         method: "POST",
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-          role,
-        }),
+        body: JSON.stringify({ email, role }),
       });
 
-      if (!response.ok) {
-        const data = await response.json().catch(() => null);
-        throw new Error(data?.error ?? "Unable to invite member.");
-      }
-
       setEmail("");
-      await loadMembers();
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Request failed.");
+      await loadData();
+    } catch {
+      setError("Unable to create invitation.");
     } finally {
       setSubmitting(false);
     }
   }
 
-  async function changeRole(memberId: string, nextRole: string) {
-    const response = await apiFetch(
-      `/workspaces/${workspaceId}/members/${memberId}`,
-      {
+  async function updateRole(memberId: string, nextRole: "EDITOR" | "VIEWER") {
+    try {
+      await apiFetch(`/workspaces/${workspaceId}/members/${memberId}`, {
         method: "PATCH",
         body: JSON.stringify({ role: nextRole }),
-      },
-    );
+      });
 
-    if (!response.ok) {
+      await loadData();
+    } catch {
       setError("Unable to update member role.");
-      return;
     }
-
-    await loadMembers();
   }
 
   async function removeMember(memberId: string) {
-    const confirmed = window.confirm("Remove this member?");
-    if (!confirmed) return;
+    if (!window.confirm("Remove this member?")) return;
 
-    const response = await apiFetch(
-      `/workspaces/${workspaceId}/members/${memberId}`,
-      {
+    try {
+      await apiFetch(`/workspaces/${workspaceId}/members/${memberId}`, {
         method: "DELETE",
-      },
-    );
+      });
 
-    if (!response.ok) {
+      await loadData();
+    } catch {
       setError("Unable to remove member.");
-      return;
     }
+  }
 
-    await loadMembers();
+  async function cancelInvitation(invitationId: string) {
+    if (!window.confirm("Cancel this invitation?")) return;
+
+    try {
+      await apiFetch(`/workspaces/${workspaceId}/invitations/${invitationId}`, {
+        method: "DELETE",
+      });
+
+      await loadData();
+    } catch {
+      setError("Unable to cancel invitation.");
+    }
+  }
+
+  if (loading) {
+    return <p className="text-sm text-muted-foreground">Loading members...</p>;
   }
 
   return (
-    <section className="mt-8 rounded-xl border border-slate-800 bg-slate-900 p-6">
-      <h2 className="text-xl font-semibold">Workspace members</h2>
-
-      {isOwner && (
-        <form
-          onSubmit={handleInvite}
-          className="mt-5 grid gap-3 md:grid-cols-[1fr_150px_auto]"
-        >
-          <input
-            required
-            type="email"
-            placeholder="Member email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2"
-          />
-
-          <select
-            value={role}
-            onChange={(event) =>
-              setRole(event.target.value as "EDITOR" | "VIEWER")
-            }
-            className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2"
-          >
-            <option value="VIEWER">Viewer</option>
-            <option value="EDITOR">Editor</option>
-          </select>
-
-          <button
-            disabled={submitting}
-            className="rounded-lg bg-blue-600 px-4 py-2 disabled:opacity-50"
-          >
-            Invite
-          </button>
-        </form>
-      )}
-
-      {error && (
-        <p className="mt-4 rounded-lg bg-red-950 p-3 text-sm text-red-300">
-          {error}
+    <section className="space-y-6 rounded-xl border p-6">
+      <div>
+        <h2 className="text-lg font-semibold">Members</h2>
+        <p className="text-sm text-muted-foreground">
+          Manage workspace access.
         </p>
-      )}
+      </div>
 
-      {loading ? (
-        <p className="mt-5 text-sm text-slate-400">Loading members...</p>
-      ) : (
-        <div className="mt-5 space-y-3">
-          {members.map((member) => (
-            <div
-              key={member.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-800 p-3"
-            >
-              <div>
-                <p className="text-sm font-medium">{member.user.email}</p>
-                <p className="text-xs text-slate-500">{member.role}</p>
-              </div>
+      {error && <p className="text-sm text-red-600">{error}</p>}
 
-              {isOwner && member.role !== "OWNER" && (
-                <div className="flex items-center gap-2">
+      <div className="space-y-3">
+        {members.map((member) => (
+          <div
+            key={member.id}
+            className="flex items-center justify-between gap-4 rounded-lg border p-3"
+          >
+            <div>
+              <p className="text-sm font-medium">{member.user.email}</p>
+              <p className="text-xs text-muted-foreground">
+                Joined {new Date(member.createdAt).toLocaleDateString()}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {isOwner && member.role !== "OWNER" ? (
+                <>
                   <select
                     value={member.role}
                     onChange={(event) =>
-                      void changeRole(member.id, event.target.value)
+                      void updateRole(
+                        member.id,
+                        event.target.value as "EDITOR" | "VIEWER",
+                      )
                     }
-                    className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
+                    className="rounded-md border px-2 py-1 text-sm"
                   >
-                    <option value="VIEWER">Viewer</option>
                     <option value="EDITOR">Editor</option>
+                    <option value="VIEWER">Viewer</option>
                   </select>
 
                   <button
                     type="button"
                     onClick={() => void removeMember(member.id)}
-                    className="rounded-md border border-red-800 px-2 py-1 text-sm text-red-400 hover:bg-red-950"
+                    className="text-sm text-red-600"
                   >
                     Remove
                   </button>
-                </div>
+                </>
+              ) : (
+                <span className="text-sm text-muted-foreground">
+                  {member.role}
+                </span>
               )}
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
+      </div>
+
+      {isOwner && (
+        <>
+          <form onSubmit={inviteMember} className="space-y-3 border-t pt-5">
+            <h3 className="font-medium">Invite member</h3>
+
+            <div className="flex flex-wrap gap-2">
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="member@example.com"
+                className="min-w-0 flex-1 rounded-md border px-3 py-2 text-sm"
+              />
+
+              <select
+                value={role}
+                onChange={(event) =>
+                  setRole(event.target.value as "EDITOR" | "VIEWER")
+                }
+                className="rounded-md border px-3 py-2 text-sm"
+              >
+                <option value="VIEWER">Viewer</option>
+                <option value="EDITOR">Editor</option>
+              </select>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
+              >
+                {submitting ? "Inviting..." : "Invite"}
+              </button>
+            </div>
+          </form>
+
+          {invitations.length > 0 && (
+            <div className="space-y-3 border-t pt-5">
+              <h3 className="font-medium">Pending invitations</h3>
+
+              {invitations.map((invitation) => (
+                <div
+                  key={invitation.id}
+                  className="flex items-center justify-between gap-4 rounded-lg border p-3"
+                >
+                  <div>
+                    <p className="text-sm font-medium">{invitation.email}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {invitation.role} · Expires{" "}
+                      {new Date(invitation.expiresAt).toLocaleDateString()}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => void cancelInvitation(invitation.id)}
+                    className="text-sm text-red-600"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </section>
   );

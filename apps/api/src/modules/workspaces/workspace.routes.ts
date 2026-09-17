@@ -6,6 +6,7 @@ import {
   getWorkspaceController,
 } from "./workspace.controller.js";
 import memberRoutes from "./member.routes.js";
+import invitationRoutes from "./invitation.routes.js";
 
 const router = Router();
 
@@ -15,5 +16,6 @@ router.post("/", createWorkspaceController);
 router.get("/", listWorkspacesController);
 router.get("/:workspaceId", getWorkspaceController);
 router.use("/:workspaceId/members", memberRoutes);
+router.use("/:workspaceId/invitations", invitationRoutes);
 
 export default router;

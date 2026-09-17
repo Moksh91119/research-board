@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import DocumentSourcesPanel from "@/components/document-sources/document-sources-panel";
+import { DocumentSources } from "@/components/documents/document-sources";
 
 type DocumentEditorProps = {
   documentId: string;
@@ -16,6 +17,7 @@ type DocumentData = {
   title: string;
   content: string;
   workspaceId: string;
+  updatedAt: string;
 };
 
 export default function DocumentEditor({ documentId }: DocumentEditorProps) {
@@ -258,6 +260,10 @@ export default function DocumentEditor({ documentId }: DocumentEditorProps) {
 
             <EditorContent editor={editor} className="min-h-[500px]" />
           </div>
+          <DocumentSources
+            documentId={documentId}
+            workspaceId={document.workspaceId}
+          />
 
           {error && <p className="text-sm text-red-400">{error}</p>}
         </form>

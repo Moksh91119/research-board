@@ -22,6 +22,7 @@ model User {
   memberships  WorkspaceMember[]
   documents  Document[]
   researchSources ResearchSource[]
+  sentInvitations WorkspaceInvitation[] @relation("SentInvitations")
 }
 
 model Workspace {
@@ -35,6 +36,7 @@ model Workspace {
   researchSources ResearchSource[]
   canvasNodes CanvasNode[]
   canvasEdges CanvasEdge[]
+  invitations WorkspaceInvitation[]
 }
 
 model WorkspaceMember {
@@ -136,4 +138,32 @@ model CanvasEdge {
   targetNode CanvasNode @relation("EdgeTarget", fields: [targetNodeId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId])
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+  EXPIRED
+}
+
+model WorkspaceInvitation {
+  id          String           @id @default(uuid())
+  email       String
+  role        WorkspaceRole
+  tokenHash   String           @unique
+  status      InvitationStatus @default(PENDING)
+  expiresAt   DateTime
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  workspaceId String
+  invitedById String
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy User      @relation("SentInvitations", fields: [invitedById], references: [id])
+
+  @@index([email, status])
+  @@index([workspaceId, status])
 }

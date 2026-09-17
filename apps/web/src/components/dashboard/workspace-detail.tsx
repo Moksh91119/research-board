@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import ResearchSourcesPanel from "@/components/research-sources/research-sources-panel";
-import WorkspaceMembers from "@/components/workspace/workspace-members";
+import { WorkspaceMembers } from "@/components/workspace/workspace-members";
 
 type WorkspaceDetailProps = {
   workspaceId: string;

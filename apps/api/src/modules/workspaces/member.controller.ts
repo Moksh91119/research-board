@@ -9,6 +9,7 @@ import {
   removeMember,
   updateMemberRole,
 } from "./member.service.js";
+import { ZodError } from "zod";
 
 function getParam(value: string | string[] | undefined): string {
   if (typeof value !== "string" || !value) {
@@ -27,6 +28,12 @@ function getUserId(req: Request) {
 }
 
 function handleError(error: unknown, res: Response) {
+  if (error instanceof ZodError) {
+    return res.status(400).json({
+      error: "VALIDATION_ERROR",
+      issues: error.issues,
+    });
+  }
   const code = error instanceof Error ? error.message : "UNKNOWN_ERROR";
 
   const statusMap: Record<string, number> = {
