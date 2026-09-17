@@ -2,14 +2,14 @@ import type { Request, Response } from "express";
 import { loginSchema, registerSchema } from "./auth.schemas.js";
 import { getUserById, loginUser, registerUser } from "./auth.service.js";
 
-const isProduction = process.env.NODE_ENV === "production";
+// const isProduction = process.env.NODE_ENV === "production";
 
 const cookieOptions = {
   httpOnly: true,
-  secure: isProduction,
-  sameSite: "lax" as const,
+  secure: true,
+  sameSite: "none" as const,
   path: "/",
-  maxAge: 15 * 60 * 1000,
+  maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
 function setAuthCookie(res: Response, token: string): void {
@@ -19,8 +19,8 @@ function setAuthCookie(res: Response, token: string): void {
 function clearAuthCookie(res: Response): void {
   res.clearCookie("access_token", {
     httpOnly: true,
-    secure: isProduction,
-    sameSite: "lax",
+    secure: true,
+    sameSite: "none" as const,
     path: "/",
   });
 }
