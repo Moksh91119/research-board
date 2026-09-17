@@ -5,6 +5,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
+import DocumentSourcesPanel from "@/components/document-sources/document-sources-panel";
 
 type DocumentEditorProps = {
   documentId: string;
@@ -191,6 +192,13 @@ export default function DocumentEditor({ documentId }: DocumentEditorProps) {
 
           {error && <p className="text-sm text-red-400">{error}</p>}
         </form>
+
+        {document && (
+          <DocumentSourcesPanel
+            documentId={document.id}
+            workspaceId={document.workspaceId}
+          />
+        )}
 
         <button
           type="button"
