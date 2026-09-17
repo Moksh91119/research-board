@@ -23,6 +23,9 @@ type DocumentItem = {
   id: string;
   title: string;
   updatedAt: string;
+  _count?: {
+    sources: number;
+  };
 };
 
 export default function WorkspaceDetail({ workspaceId }: WorkspaceDetailProps) {
@@ -54,27 +57,40 @@ export default function WorkspaceDetail({ workspaceId }: WorkspaceDetailProps) {
     }
 
     const data = await response.json();
-    setDocuments(data.documents);
+    setDocuments(data.documents ?? []);
   }
 
   useEffect(() => {
-    async function load() {
-      try {
-        await Promise.all([loadWorkspace(), loadDocuments()]);
-      } catch {
-        setError("Unable to load workspace data");
-      } finally {
-        setLoading(false);
-      }
-    }
+    let cancelled = false;
 
-    void load();
+    const timer = window.setTimeout(() => {
+      async function load() {
+        try {
+          await Promise.all([loadWorkspace(), loadDocuments()]);
+        } catch {
+          if (!cancelled) {
+            setError("Unable to load workspace data");
+          }
+        } finally {
+          if (!cancelled) {
+            setLoading(false);
+          }
+        }
+      }
+
+      void load();
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [workspaceId]);
 
   async function handleCreateDocument(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!title.trim()) return;
+    if (!title.trim() || creating) return;
 
     setCreating(true);
     setError("");
@@ -121,6 +137,7 @@ export default function WorkspaceDetail({ workspaceId }: WorkspaceDetailProps) {
     <section className="p-8">
       <div className="mx-auto max-w-5xl">
         <button
+          type="button"
           onClick={() => router.push("/dashboard")}
           className="mb-6 text-sm text-slate-400 hover:text-white"
         >
@@ -171,6 +188,7 @@ export default function WorkspaceDetail({ workspaceId }: WorkspaceDetailProps) {
               {documents.map((document) => (
                 <button
                   key={document.id}
+                  type="button"
                   onClick={() =>
                     router.push(
                       `/dashboard/${workspaceId}/documents/${document.id}`,
@@ -180,9 +198,15 @@ export default function WorkspaceDetail({ workspaceId }: WorkspaceDetailProps) {
                 >
                   <p className="font-medium">{document.title}</p>
 
-                  <p className="mt-1 text-xs text-slate-500">
-                    Updated {new Date(document.updatedAt).toLocaleString()}
-                  </p>
+                  <div className="mt-1 flex items-center gap-3">
+                    <p className="text-xs text-slate-500">
+                      Updated {new Date(document.updatedAt).toLocaleString()}
+                    </p>
+
+                    <span className="text-xs text-muted-foreground">
+                      {document._count?.sources ?? 0} sources
+                    </span>
+                  </div>
                 </button>
               ))}
             </div>
@@ -190,6 +214,7 @@ export default function WorkspaceDetail({ workspaceId }: WorkspaceDetailProps) {
         </div>
 
         {error && <p className="mt-6 text-sm text-red-400">{error}</p>}
+
         <ResearchSourcesPanel workspaceId={workspaceId} />
       </div>
     </section>

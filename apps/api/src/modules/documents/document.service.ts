@@ -1,4 +1,5 @@
 import { prisma } from "../../lib/prisma.js";
+
 import type {
   CreateDocumentInput,
   UpdateDocumentInput,
@@ -49,6 +50,13 @@ export async function listDocuments(userId: string, workspaceId: string) {
   return prisma.document.findMany({
     where: { workspaceId },
     orderBy: { updatedAt: "desc" },
+    include: {
+      _count: {
+        select: {
+          sources: true,
+        },
+      },
+    },
   });
 }
 
@@ -61,6 +69,15 @@ export async function getDocument(userId: string, documentId: string) {
           some: { userId },
         },
       },
+    },
+    select: {
+      id: true,
+      title: true,
+      content: true,
+      workspaceId: true,
+      updatedAt: true,
+      createdAt: true,
+      createdById: true,
     },
   });
 
