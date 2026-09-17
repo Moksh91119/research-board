@@ -1,5 +1,13 @@
-import { WorkspaceDetail } from "@/components/dashboard/workspace-detail";
+import WorkspaceDetail from "@/components/dashboard/workspace-detail";
 
-export default function WorkspacePage() {
-  return <WorkspaceDetail />;
+type WorkspacePageProps = {
+  params: Promise<{
+    workspaceId: string;
+  }>;
+};
+
+export default async function WorkspacePage({ params }: WorkspacePageProps) {
+  const { workspaceId } = await params;
+
+  return <WorkspaceDetail workspaceId={workspaceId} />;
 }

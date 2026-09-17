@@ -1,113 +1,186 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { FormEvent, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
+
+type WorkspaceDetailProps = {
+  workspaceId: string;
+};
 
 type Workspace = {
   id: string;
   name: string;
   description: string | null;
-  memberships: { role: string }[];
 };
 
-export function WorkspaceDetail() {
-  const params = useParams<{ workspaceId: string }>();
+type DocumentItem = {
+  id: string;
+  title: string;
+  updatedAt: string;
+};
+
+export default function WorkspaceDetail({ workspaceId }: WorkspaceDetailProps) {
   const router = useRouter();
 
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
 
+  async function loadWorkspace() {
+    const response = await apiFetch(`/workspaces/${workspaceId}`);
+
+    if (!response.ok) {
+      throw new Error("Unable to load workspace");
+    }
+
+    const data = await response.json();
+    setWorkspace(data.workspace);
+  }
+
+  async function loadDocuments() {
+    const response = await apiFetch(`/workspaces/${workspaceId}/documents`);
+
+    if (!response.ok) {
+      throw new Error("Unable to load documents");
+    }
+
+    const data = await response.json();
+    setDocuments(data.documents);
+  }
+
   useEffect(() => {
-    let cancelled = false;
-
-    async function loadWorkspace() {
+    async function load() {
       try {
-        const response = await apiFetch(`/workspaces/${params.workspaceId}`);
-
-        if (response.status === 401) {
-          router.replace("/login");
-          return;
-        }
-
-        if (!response.ok) {
-          throw new Error("Workspace not found.");
-        }
-
-        const data = await response.json();
-
-        if (!cancelled) {
-          setWorkspace(data.workspace);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(
-            err instanceof Error ? err.message : "Unable to load workspace.",
-          );
-        }
+        await Promise.all([loadWorkspace(), loadDocuments()]);
+      } catch {
+        setError("Unable to load workspace data");
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     }
 
-    loadWorkspace();
+    void load();
+  }, [workspaceId]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [params.workspaceId, router]);
+  async function handleCreateDocument(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
 
-  if (loading) {
-    return <main className="p-8">Loading workspace...</main>;
+    if (!title.trim()) return;
+
+    setCreating(true);
+    setError("");
+
+    try {
+      const response = await apiFetch(`/workspaces/${workspaceId}/documents`, {
+        method: "POST",
+        body: JSON.stringify({
+          title: title.trim(),
+          content: "",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Unable to create document");
+      }
+
+      const data = await response.json();
+
+      setTitle("");
+      router.push(`/dashboard/${workspaceId}/documents/${data.document.id}`);
+    } catch {
+      setError("Unable to create document");
+    } finally {
+      setCreating(false);
+    }
   }
 
-  if (error || !workspace) {
+  if (loading) {
     return (
-      <main className="p-8">
-        <p className="text-red-400">{error || "Workspace not found."}</p>
-        <Link href="/dashboard" className="mt-4 inline-block text-blue-400">
-          Back to dashboard
-        </Link>
-      </main>
+      <section className="p-8 text-slate-400">Loading workspace...</section>
+    );
+  }
+
+  if (!workspace) {
+    return (
+      <section className="p-8 text-red-400">
+        {error || "Workspace not found"}
+      </section>
     );
   }
 
   return (
-    <main className="p-8">
+    <section className="p-8">
       <div className="mx-auto max-w-5xl">
-        <Link
-          href="/dashboard"
-          className="text-sm text-blue-400 hover:text-blue-300"
+        <button
+          onClick={() => router.push("/dashboard")}
+          className="mb-6 text-sm text-slate-400 hover:text-white"
         >
-          ? All workspaces
-        </Link>
+          ← Back to workspaces
+        </button>
 
-        <header className="mt-8">
-          <div className="flex items-center justify-between gap-4">
-            <h1 className="text-3xl font-semibold">{workspace.name}</h1>
+        <h1 className="text-3xl font-bold">{workspace.name}</h1>
 
-            <span className="rounded-full bg-blue-950 px-3 py-1 text-xs text-blue-300">
-              {workspace.memberships[0]?.role ?? "MEMBER"}
-            </span>
-          </div>
+        {workspace.description && (
+          <p className="mt-2 text-slate-400">{workspace.description}</p>
+        )}
 
-          <p className="mt-3 text-slate-400">
-            {workspace.description || "No description"}
-          </p>
-        </header>
+        <div className="mt-10 rounded-xl border border-slate-800 bg-slate-900 p-6">
+          <h2 className="text-xl font-semibold">Create document</h2>
 
-        <section className="mt-10 rounded-xl border border-slate-800 bg-slate-900 p-6">
-          <h2 className="text-xl font-semibold">Research canvas</h2>
-          <p className="mt-2 text-sm text-slate-400">
-            Your research documents, sources, and knowledge graph will appear
-            here.
-          </p>
-        </section>
+          <form onSubmit={handleCreateDocument} className="mt-4 flex gap-3">
+            <input
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="Document title"
+              className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 outline-none focus:border-blue-500"
+              maxLength={200}
+              required
+            />
+
+            <button
+              type="submit"
+              disabled={creating}
+              className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-medium hover:bg-blue-500 disabled:opacity-50"
+            >
+              {creating ? "Creating..." : "Create"}
+            </button>
+          </form>
+        </div>
+
+        <div className="mt-8">
+          <h2 className="text-xl font-semibold">Documents</h2>
+
+          {documents.length === 0 ? (
+            <p className="mt-4 text-slate-400">No documents yet.</p>
+          ) : (
+            <div className="mt-4 space-y-3">
+              {documents.map((document) => (
+                <button
+                  key={document.id}
+                  onClick={() =>
+                    router.push(
+                      `/dashboard/${workspaceId}/documents/${document.id}`,
+                    )
+                  }
+                  className="block w-full rounded-lg border border-slate-800 bg-slate-900 p-4 text-left hover:border-slate-600"
+                >
+                  <p className="font-medium">{document.title}</p>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    Updated {new Date(document.updatedAt).toLocaleString()}
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {error && <p className="mt-6 text-sm text-red-400">{error}</p>}
       </div>
-    </main>
+    </section>
   );
 }
