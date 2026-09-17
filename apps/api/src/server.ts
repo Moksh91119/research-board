@@ -4,12 +4,13 @@ import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import { prisma } from "./lib/prisma.js";
+import { ZodError } from "zod";
 import authRoutes from "./modules/auth/auth.routes.js";
 import workspaceRoutes from "./modules/workspaces/workspace.routes.js";
 import documentRoutes from "./modules/documents/document.routes.js";
 import researchSourceRoutes from "./modules/research-sources/research-source.routes.js";
 import documentSourceRoutes from "./modules/document-sources/document-source.routes.js";
-import { ZodError } from "zod";
+import canvasRoutes from "./modules/canvas/canvas.routes.js";
 
 const app = express();
 
@@ -57,6 +58,7 @@ app.use(documentRoutes);
 app.use(researchSourceRoutes);
 app.use(documentSourceRoutes);
 app.use("/sources", researchSourceRoutes);
+app.use(canvasRoutes);
 
 app.use(
   (
