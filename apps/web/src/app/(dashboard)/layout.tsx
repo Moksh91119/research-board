@@ -1,17 +1,17 @@
 "use client";
 
 import { ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 
 type DashboardLayoutProps = {
   children: ReactNode;
 };
 
-export default function DashboardLayout({
-  children,
-}: DashboardLayoutProps) {
+export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
+  const params = useParams<{ workspaceId?: string }>();
+  const workspaceId = params.workspaceId;
 
   async function handleLogout() {
     await apiFetch("/auth/logout", {
@@ -34,6 +34,15 @@ export default function DashboardLayout({
           >
             Workspaces
           </button>
+
+          {workspaceId && (
+            <button
+              onClick={() => router.push(`/dashboard/${workspaceId}/canvas`)}
+              className="block w-full rounded-lg px-3 py-2 text-left hover:bg-slate-800"
+            >
+              Canvas
+            </button>
+          )}
 
           <button
             disabled
@@ -58,9 +67,7 @@ export default function DashboardLayout({
         </button>
       </aside>
 
-      <main className="ml-64 min-h-screen flex-1">
-        {children}
-      </main>
+      <main className="ml-64 min-h-screen flex-1">{children}</main>
     </div>
   );
 }
