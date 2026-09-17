@@ -25,7 +25,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { apiFetch } from "@/lib/api";
 import ResearchNode from "./nodes/research-node";
-import CanvasInspector from "./canvas-inspector";
+import { CanvasInspector } from "./canvas-inspector";
 import CanvasImportPanel from "./canvas-import-panel";
 import { useRouter } from "next/navigation";
 import { toPng } from "html-to-image";
@@ -231,7 +231,7 @@ function CanvasContent({ workspaceId }: ResearchCanvasProps) {
   function updateSelectedNode(updates: {
     title?: string;
     description?: string;
-    category?: "source" | "document" | "note" | "question";
+    category?: string;
   }) {
     recordHistory();
     setNodes((currentNodes) => {
@@ -275,6 +275,42 @@ function CanvasContent({ workspaceId }: ResearchCanvasProps) {
 
   const selectedNode = nodes.find((node) => node.selected);
   const selectedEdge = edges.find((edge) => edge.selected);
+
+  function deleteSelectedEdge() {
+    recordHistory();
+
+    setEdges((currentEdges) => {
+      const updatedEdges = currentEdges.filter((edge) => !edge.selected);
+
+      saveCanvas(nodes, updatedEdges);
+      return updatedEdges;
+    });
+  }
+
+  function deleteSelectedNode() {
+    recordHistory();
+
+    setNodes((currentNodes) => {
+      const deletedNodeIds = new Set(
+        currentNodes.filter((node) => node.selected).map((node) => node.id),
+      );
+
+      const updatedNodes = currentNodes.filter(
+        (node) => !deletedNodeIds.has(node.id),
+      );
+
+      const updatedEdges = edges.filter(
+        (edge) =>
+          !deletedNodeIds.has(edge.source) && !deletedNodeIds.has(edge.target),
+      );
+
+      setEdges(updatedEdges);
+      saveCanvas(updatedNodes, updatedEdges);
+
+      return updatedNodes;
+    });
+  }
+
   function duplicateSelectedNodes() {
     const selectedNodes = nodes.filter((node) => node.selected);
 
@@ -364,7 +400,7 @@ function CanvasContent({ workspaceId }: ResearchCanvasProps) {
 
         return {
           ...edge,
-          label: updates.label,
+          label: updates.label ?? "",
         };
       });
 
@@ -507,13 +543,16 @@ function CanvasContent({ workspaceId }: ResearchCanvasProps) {
           defaultEdgeOptions={{
             type: "smoothstep",
             animated: false,
-            style: {
-              stroke: "#94a3b8",
-              strokeWidth: 2,
+            labelStyle: {
+              fontSize: 12,
+              fontWeight: 500,
+            },
+            labelBgStyle: {
+              fill: "white",
+              fillOpacity: 0.9,
             },
             markerEnd: {
               type: MarkerType.ArrowClosed,
-              color: "#94a3b8",
             },
           }}
           fitView
@@ -523,9 +562,9 @@ function CanvasContent({ workspaceId }: ResearchCanvasProps) {
           panOnDrag={[1, 2]}
           multiSelectionKeyCode="Shift"
         >
-          <Background gap={20} size={1} />
-          <Controls />
+          <Background />
           <MiniMap />
+          <Controls />
         </ReactFlow>
       </div>
 
@@ -534,6 +573,8 @@ function CanvasContent({ workspaceId }: ResearchCanvasProps) {
         edge={selectedEdge}
         onUpdateNode={updateSelectedNode}
         onUpdateEdge={updateSelectedEdge}
+        onDeleteNode={deleteSelectedNode}
+        onDeleteEdge={deleteSelectedEdge}
       />
     </div>
   );
